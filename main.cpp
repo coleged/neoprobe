@@ -114,7 +114,7 @@ int createNeohub(char *buffer, struct neohub *table){
     while(*buffer!=']'){  // devices end with ]
         
         // device - string
-        if(strncmp(buffer,"\"device",7)==0){
+        if(strncmp(buffer,"\"device\"",8)==0){
             devices[device].device=getValueString(buffer);
             device++;
             // set up some baseline for next device
@@ -123,17 +123,28 @@ int createNeohub(char *buffer, struct neohub *table){
         }
         
         // thermostat - bool
-        if(strncmp(buffer,"\"THERMOSTAT",11)==0){
+        if(strncmp(buffer,"\"THERMOSTAT\"",12)==0){
             devices[device].stat_mode.thermostat=getValueBool(buffer);
         }
         
+        // timeclock - bool
+        if(strncmp(buffer,"\"TIMECLOCK\"",11)==0){
+            devices[device].stat_mode.timeclock=getValueBool(buffer);
+        }
+        
+        // timer - bool - timeclocks true = on
+        if(strncmp(buffer,"\"TIMER\"",7)==0){
+            devices[device].timer=getValueBool(buffer);
+        }
+        
+        
         // heating - bool if true stat is calling for heat
-        if(strncmp(buffer,"\"HEATING",8)==0){
+        if(strncmp(buffer,"\"HEATING\"",9)==0){
             devices[device].heating=getValueBool(buffer);
         }
         
         // Current Temperature - float
-        if(strncmp(buffer,"\"CURRENT_TEMP",13)==0){
+        if(strncmp(buffer,"\"CURRENT_TEMPERATURE\"",21)==0){
             devices[device].current_temperature
             =getValueFloat(buffer);
         }
@@ -277,18 +288,27 @@ main(int argc, char *argv[])
     if(temp_flag){
         i = 0;
         while(devices[i].device != NULL){
-            if(devices[i].stat_mode.thermostat==true){ // thermostat
-                printf("%s : ",devices[i].device);
+            printf("%s : ",devices[i].device);
+            if(devices[i].stat_mode.thermostat){ // thermostat
+                
                 printf("%2.2f ",devices[i].current_temperature);
                 if(devices[i].heating){
-                    printf("HEATING\n");
+                    printf("HEATING");
                 }else{
-                    printf("\n");
+                    //printf("NOT HEATING");
                 }
             }else{ // not a thermostat
                 devices[i].current_temperature=0;
                 //printf("N/A\n");
             }
+            if(devices[i].stat_mode.timeclock){ // timer
+                if(devices[i].timer){
+                    printf("ON");
+                }else{
+                    printf("OFF");
+                }
+            }
+            printf("\n");
             i++;
         }
     }
