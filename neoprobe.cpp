@@ -9,7 +9,10 @@
 #include "neohub.h"
 #include "neoprobe.h"
 
-extern bool quite,verbose;
+#define JSON_FILE "/Users/ecole/src/neoprobe/neoprobe/neohub.json"
+// #define _NEO_CONNECTED    // uncomment this when neohub available
+
+extern bool quite,verbose,debug_flag;
 
 // default server
 char d_server_name[] = D_SERVER_NAME;
@@ -46,7 +49,8 @@ char *stripString(char *str){
 //********** getNeoHub()
 char *getNeohub(char *cmd,char *buffer,int buffer_sz){
     // connects to neohub issues string in cmd and returns response in buffer.
-    
+
+#ifdef _NEO_CONNECTED
     int  sockfd, port;
     struct sockaddr_in serv_addr;
     struct hostent *server;
@@ -89,6 +93,14 @@ char *getNeohub(char *cmd,char *buffer,int buffer_sz){
         b_point=b_point+bytes_in;
     }
     close(sockfd);
+   
+#else
+    if(debug_flag) printf("reading JSON from file\n");
+    char json_file_name[] = JSON_FILE;
+    readJson(json_file_name, buffer);
+    
+#endif
+    
     return(buffer);
 }
 

@@ -26,7 +26,7 @@
 #include <netdb.h>
 
 #define MYNAME "neoprobe"
-#define VERSION "1.0.0"
+#define VERSION "2.0.0"
 
 #define D_SERVER_NAME "neohub"
 #define D_PORT 4242
@@ -107,7 +107,7 @@ struct neohub {
     bool    zone_1paired_to_multilink;
     bool    zone_1_or_2;
     bool    zone_2_paired_to_multilink;
-    char    *device;
+    std::string  device;
     struct  {
         enum day {monday,tuesday,wednesday,thursday,friday,saturday,sunday};
         uint8_t temp;
@@ -130,6 +130,7 @@ const std::string keys[] = {        // string values
 void error(const char *);
 char *getNeohub(char *,char *,int);
 char *getNeohubFile(char *,char *,int);
+bool readJson(char *, char *);
 
 #endif
 

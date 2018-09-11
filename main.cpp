@@ -15,6 +15,8 @@
  *
  *********/
 
+#define _MAC_OS     // using this to include jsoncpp code that I currently cant get to work with Ubuntu
+
 #include "neohub.h"
 #include </usr/local/include/json/json.h>
 
@@ -26,10 +28,25 @@ bool quiet,verbose;
 
 int buffer_sz = 65536;      //  for dump from neohub JSON
 int debug = DEBUG;
+bool debug_flag = false;
 
 struct neohub devices[NO_OF_DEVICES]; // see neohub.h
 
-
+char *timestamp(){ // for log line output
+    static char timestamp[] = "dd-mm-yyyy,hh:mm";
+    // current date/time based on current system
+    time_t now = time(0);
+    tm *ltm = localtime(&now);
+    sprintf(timestamp,"%02d-%02d-%4d,%02d:%02d",
+            ltm->tm_mday,
+            1 + ltm->tm_mon,
+            1900 + ltm->tm_year,
+            ltm->tm_hour,
+            ltm->tm_min);
+    
+    return(timestamp);
+    
+}
 
 //************   error()
 void
@@ -40,183 +57,165 @@ error(const char *msg)
 }//************  error()
 
 
-//************   getValueBool
-bool getValueBool(char *tok){
-    // "KEY":value => true | false
-    for(;*tok!=':';tok++);
-    tok++;
-    if(*tok=='f') return(false);
-    return(true);
-}//getValueBool
-
-//************   getValueInt
-int getValueInt(char *tok){
-    // "KEY":value => value string converted to int
-    for(;*tok!=':';tok++);
-    tok++;
-    return(atoi(tok));
-}//getValueInt
-
-//************   getValueFloat
-float getValueFloat(char *tok){
-    // "KEY":value => value string converted to float
-    // value is in the form "xx.x" so just skip open quote and
-    // NULL the closing quote
-    // TODO -- what is the temp is less than 10 degC
-    for(;*tok!=':';tok++);
-    tok++;
-    tok++;    // skip over opening quote
-    tok[4]='\0'; // NULL the closing quote
-    return(atof(tok));
-}//getValueFloat
-
-
-//************   getValueString
-char *getValueString(char *tok){
-    
-    char *value = NULL;
-    int len;
-    
-    // "KEY":value => value string
-    for(;*tok!=':';tok++);
-    tok++;  // skip over the :
-    tok++;  // skip over opening quote
-    len = (int)strlen(tok);
-    value = (char *)malloc(len);
-    strncpy(value,tok,len);
-    value[len-1] = '\0'; //  NULL out closing quote
-    return(value);
-}//getValueString
-
-
 //************   errorUsage
 void
 errorUsage()
 {
     printf("USAGE: %s [-v] [-s server] [-p port] \n",myname);
-    printf("    -v           - Prints version number and exits\n");
+    printf("    -t           - Prints tempratures and state of all stats and timers\n");
+    printf("    -l           - Prints tempratures and state of all stats in one log line\n");
+    printf("    -D           - Prints debug detail of all connected devices\n");
+    printf("    -V           - Prints version number and exits\n");
     
 }//errorUsage
 
 
-//************   createNeohub
-int createNeohub(char *buffer, struct neohub *table){
-    
-    // Populates the devices array of struct neohub from
-    // the memory buffer dump from {"INFO":0} command
-    
-    int device = 0;
-    
-    
-    buffer = strchr(buffer,'['); // scan to start of device table
-    buffer++; // skip over [
-    buffer = strtok(buffer,"{},"); // start token parse
-    while(*buffer!=']'){  // devices end with ]
-        
-        // device - string
-        if(strncmp(buffer,"\"device\"",8)==0){
-            devices[device].device=getValueString(buffer);
-            device++;
-            // set up some baseline for next device
-            devices[device].stat_mode.thermostat=false;
-            devices[device].device=NULL; // next device
-        }
-        
-        // thermostat - bool
-        if(strncmp(buffer,"\"THERMOSTAT\"",12)==0){
-            devices[device].stat_mode.thermostat=getValueBool(buffer);
-        }
-        
-        // timeclock - bool
-        if(strncmp(buffer,"\"TIMECLOCK\"",11)==0){
-            devices[device].stat_mode.timeclock=getValueBool(buffer);
-        }
-        
-        // timer - bool - timeclocks true = on
-        if(strncmp(buffer,"\"TIMER\"",7)==0){
-            devices[device].timer=getValueBool(buffer);
-        }
-        
-        
-        // heating - bool if true stat is calling for heat
-        if(strncmp(buffer,"\"HEATING\"",9)==0){
-            devices[device].heating=getValueBool(buffer);
-        }
-        
-        // Current Temperature - float
-        if(strncmp(buffer,"\"CURRENT_TEMPERATURE\"",21)==0){
-            devices[device].current_temperature
-            =getValueFloat(buffer);
-        }
-        
-        buffer = strtok(NULL,"{},"); // next token
-        
-    }//while buffer
-    return(0);
-}
-
-//************   indent       - used by parse_buffer
-void indent(int i){
-    
-    while( i-- > 0 ) putc('\t',stdout);
-}//indent
-
+#ifdef _MAC_OS
 
 //************   examineElement()
-void examineElement(Json::Value element){
+void examineElement(int dev, Json::Value element){
+    
+    // recursively parse object element. Prints out what it finds.
+    static int depth = 1;
     
     for( Json:: Value member : element.getMemberNames()){
-        std::cout << member << " : ";
+        if(debug_flag) std::cout << "{" << depth << "}" << member << " : ";
         switch (element[member.asString()].type())
         {
             case Json::booleanValue:
-                std::cout << "BOOL.....";
+                if(debug_flag) std::cout << "(bool) ";
                 if(element[member.asString()].asBool()){
-                    std::cout << " TRUE ";
+                    if(debug_flag) std::cout << "= true ";
                 }else{
-                    std::cout << " FALSE ";
+                    if(debug_flag) std::cout << "= false ";
                 };
-                //... need to save **membername** and **value**
+                if(member.asString() == "THERMOSTAT"){
+                    devices[dev].stat_mode.thermostat=element[member.asString()].asBool();
+                    if(debug_flag) std::cout << "loaded into struct";
+                }
+                if(member.asString() == "TIMECLOCK"){
+                    devices[dev].stat_mode.timeclock=element[member.asString()].asBool();
+                    if(debug_flag) std::cout << "loaded into struct";
+                }
+                if(member.asString() == "TIMER"){
+                    devices[dev].timer=element[member.asString()].asBool();
+                    if(debug_flag) std::cout << "loaded into struct";
+                }
+                if(member.asString() == "HEATING"){
+                    devices[dev].heating=element[member.asString()].asBool();
+                    if(debug_flag) std::cout << "loaded into struct";
+                }
+                
+                if(debug_flag) std::cout << std::endl;
                 break;
             case Json::realValue:
-                std::cout << "I'm REAL";
-                //... need to save **membername** and **value**
+                if(debug_flag) std::cout << "(real) ";
+                if(debug_flag) std::cout  << element[member.asString()].asFloat();
+                if(debug_flag) std::cout << std::endl;
                 break;
             case Json::uintValue:
-                std::cout << "I'm UINT";
-                //... need to save **membername** and **value**
+                if(debug_flag) std::cout << "(u_int) ";
+                if(debug_flag) std::cout  << element[member.asString()].asInt();
+                if(debug_flag) std::cout << std::endl;
                 break;
             case Json::stringValue:
-                std::cout << "string.....";
-                std::cout  << element[member.asString()].asString();
-                //... need to save **membername** and **value**
+                if(debug_flag) std::cout << "(string) \"";
+                if(debug_flag) std::cout  << element[member.asString()].asString();
+                if(debug_flag) std::cout << "\"";
+               
+                if(member.asString() == "CURRENT_TEMPERATURE"){
+                    devices[dev].current_temperature=
+                                stof(element[member.asString()].asString(),nullptr);
+                    if(debug_flag) std::cout << "loaded into struct as float";
+                }
+                if(debug_flag) std::cout << std::endl;
+                
                 break;
             case Json::intValue:
-                std::cout << "int.....";
-                std::cout  << element[member.asString()].asInt();
+                if(debug_flag) std::cout << "(int) ";
+                if(debug_flag) std::cout  << element[member.asString()].asInt();
+                if(debug_flag) std::cout << std::endl;
                 //... need to save **membername** and **value**
                 break;
             case Json::nullValue:
-                std::cout << "I'm null";
+                if(debug_flag) std::cout << "(null)";
+                if(debug_flag) std::cout << std::endl;
                 break;
             case Json::arrayValue:
-                std::cout << "Array ......";
-                //... code to parse an array (with nested sure) ...
-                //... need to save
+                if(debug_flag) std::cout << "(array))";
+                if(debug_flag) std::cout <<  std::endl;
+                //... parse the array by recursively calling myself for
+                // each array member
+                depth++;
+                for(Json::Value s_element : element[member.asString()]){ //
+                    if( s_element.type() == Json::stringValue){ // array of strings
+                        if(debug_flag) std::cout << "{" << depth << "}" << "(string) \"";
+                        if(debug_flag) std::cout  << s_element.asString();
+                        if(debug_flag) std::cout << "\"" << std::endl;
+                    }else{ // array of objects
+                        examineElement(dev,s_element);
+                    }
+                }//for
+                if(debug_flag) std::cout << "{" << depth << "}" << "(END-array)";
+                if(debug_flag) std::cout << std::endl;
+                depth--;
                 break;
             case Json::objectValue:
-                std::cout << "Object ......" << std::endl;
-                //... code to parse an object (with nested sure) ...
-                //... need to save
-                    std::cout <<  std::endl;
-                    examineElement(element[member.asString()]);
-                    std::cout << "END ... Object ......" << std::endl;
+                if(debug_flag) std::cout << "(object)";
+                if(debug_flag) std::cout <<  std::endl;
+                //... parse the object by calling myself
+                depth++;
+                examineElement(dev,element[member.asString()]);
+                if(debug_flag) std::cout << "{" << depth << "}" << "(END-object)";
+                if(debug_flag) std::cout << std::endl;
+                depth--;
                 break;
         }//switch
-        std::cout << std::endl;
+        
     }//for
-    std::cout << std::endl;
-}//examineElement()
+}//END*********** examineElement()
+
+void json_parse(char *buffer){ //  Alternate version using CharReader
+   
+        //
+        int device = 0;
+    
+        Json::Value root;   // contains the root value after parsing.
+        
+        Json::CharReaderBuilder builder;
+        Json::CharReader * reader = builder.newCharReader();
+        
+        std::string errors;
+        
+        bool parsingSuccessful = reader->parse( buffer,
+                                               buffer+strlen(buffer),
+                                               &root,
+                                               &errors );
+        
+        if ( !parsingSuccessful )
+        {
+            
+            std::cout  << "Failed to parse JSON\n"
+            << errors << std::endl;
+            
+        }
+        
+        if(debug_flag) std::cout << "***** JSONcpp stuff *****\n";
+        
+        for(Json::Value element : root["devices"]){ // cycle thru devices
+            
+            devices[device].device=element["device"].asString();
+            if(debug_flag) std::cout << element["device"] << std::endl;
+            examineElement(device,element);
+            device++;
+            
+        }// for
+ 
+}
+
+
+#endif
+
 
 
 //******************************************************
@@ -232,11 +231,12 @@ main(int argc, char *argv[])
     extern char *server_name;
     extern int port_no;
     bool temp_flag = false;
-    bool debug_flag = false;
+    
+    bool log_flag = false;
 
     quiet=verbose=false;
     
-    while ((opt = getopt(argc, argv, "DVtvp:s:")) != -1){
+    while ((opt = getopt(argc, argv, "DVltvp:s:")) != -1){
         switch (opt){
                 
             case 's': // Alternate server (neohub)
@@ -244,8 +244,12 @@ main(int argc, char *argv[])
                 strcpy(server_name,optarg);
                 break;
                 
-            case 'D': // Alternate server (neohub)
+            case 'D': //
                 debug_flag = true;
+                break;
+                
+            case 'l': // log output
+                log_flag = true;
                 break;
                 
             case 'p': // Alternate neohub port number
@@ -281,21 +285,29 @@ main(int argc, char *argv[])
     getNeohub(cmd,buffer,buffer_sz);  // get the JSON from the neohub
     
     // copy buffer -> mbuffer as createNeohub() modifies buffer
+    // TODO can probably use buffer now as not using createNeohub, but parsing
+    // JSON with jsoncpp rather than home grown parser
+    
     memcpy(mbuffer, buffer, buffer_sz);
     
-    createNeohub(buffer,devices); // parse buffer into devices array
+    
+#ifdef _MAC_OS
+    
+    json_parse(mbuffer); // uses CharReader method
+    
+#endif
     
     if(temp_flag){
         i = 0;
-        while(devices[i].device != NULL){
-            printf("%s : ",devices[i].device);
+        while(devices[i].device != ""){
+            std::cout << devices[i].device;
             if(devices[i].stat_mode.thermostat){ // thermostat
                 
-                printf("%2.2f ",devices[i].current_temperature);
+                printf(" %2.2f",devices[i].current_temperature);
                 if(devices[i].heating){
-                    printf("HEATING");
+                    printf(" HEATING");
                 }else{
-                    //printf("NOT HEATING");
+                    //printf(" NOT HEATING");
                 }
             }else{ // not a thermostat
                 devices[i].current_temperature=0;
@@ -303,40 +315,26 @@ main(int argc, char *argv[])
             }
             if(devices[i].stat_mode.timeclock){ // timer
                 if(devices[i].timer){
-                    printf("ON");
+                    printf(" ON");
                 }else{
-                    printf("OFF");
+                    printf(" OFF");
                 }
             }
             printf("\n");
             i++;
-        }
+        }// while
+    } // if temp_flag
+    if(log_flag){
+        i = 0;
+        printf("%s",timestamp());
+        while(devices[i].device != ""){
+            if(devices[i].stat_mode.thermostat){ // thermostat
+                printf(",%2.2f",devices[i].current_temperature);
+            }
+            i++;
+        }// while
+        printf("\n");
     }
-    
-    // jsoncpp playpen
-    
-    if (debug_flag){
-        
-        // 
-    
-        Json::Value root;   // contains the root value after parsing.
-        Json::Reader reader;
-        bool parsingSuccessful = reader.parse( mbuffer, root );
-        if ( !parsingSuccessful )
-        {
-            std::cout  << "Failed to parse neohub JSON\n"
-            << reader.getFormattedErrorMessages();
-            
-        }
-        
-        std::cout << "***** JSONcpp stuff *****\n";
-        
-        for(Json::Value element : root["devices"]){ // cycle thru array elements
-           
-                examineElement(element);
-            
-        }// for
-    }//if
     
     exit(0);
 }//main
