@@ -10,7 +10,7 @@
 #include "neoprobe.h"
 
 #define JSON_FILE "/Users/ecole/src/neoprobe/neoprobe/neohub.json"
-// #define _NEO_CONNECTED    // uncomment this when neohub available
+#define _NEO_CONNECTED    // uncomment this when neohub available
 
 extern bool quite,verbose,debug_flag;
 

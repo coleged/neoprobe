@@ -15,7 +15,7 @@
  *
  *********/
 
-#define _MAC_OS     // using this to include jsoncpp code that I currently cant get to work with Ubuntu
+#define _MAC_OS
 
 #include "neohub.h"
 #include </usr/local/include/json/json.h>
@@ -32,6 +32,7 @@ bool debug_flag = false;
 
 struct neohub devices[NO_OF_DEVICES]; // see neohub.h
 
+// ************   timestamp()
 char *timestamp(){ // for log line output
     static char timestamp[] = "dd-mm-yyyy,hh:mm";
     // current date/time based on current system
@@ -45,19 +46,18 @@ char *timestamp(){ // for log line output
             ltm->tm_min);
     
     return(timestamp);
-    
-}
+}// ************   timestamp()
 
-//************   error()
+// ************   error()
 void
 error(const char *msg)
 {
     perror(msg);
     exit(EXIT_FAILURE);
-}//************  error()
+}// ************  error()
 
 
-//************   errorUsage
+// ************   errorUsage
 void
 errorUsage()
 {
@@ -67,7 +67,7 @@ errorUsage()
     printf("    -D           - Prints debug detail of all connected devices\n");
     printf("    -V           - Prints version number and exits\n");
     
-}//errorUsage
+}// ************   errorUsage
 
 
 #ifdef _MAC_OS
@@ -75,7 +75,7 @@ errorUsage()
 //************   examineElement()
 void examineElement(int dev, Json::Value element){
     
-    // recursively parse object element. Prints out what it finds.
+    // recursively parse object element. Populating devices structure array
     static int depth = 1;
     
     for( Json:: Value member : element.getMemberNames()){
@@ -184,6 +184,8 @@ void json_parse(char *buffer){ //  Alternate version using CharReader
         
         Json::CharReaderBuilder builder;
         Json::CharReader * reader = builder.newCharReader();
+    
+        Json::Value param;
         
         std::string errors;
         
@@ -203,9 +205,16 @@ void json_parse(char *buffer){ //  Alternate version using CharReader
         if(debug_flag) std::cout << "***** JSONcpp stuff *****\n";
         
         for(Json::Value element : root["devices"]){ // cycle thru devices
-            
             devices[device].device=element["device"].asString();
             if(debug_flag) std::cout << element["device"] << std::endl;
+            // testing parameter probing
+            // so much simpler than the convuluted code in examineElement()
+            // TODO - rewrite using this
+            /*
+                param = element["CURRENT_TEMPERATURE"];
+                std::cout << element["device"] << param << std::endl;
+            */
+            //
             examineElement(device,element);
             device++;
             
