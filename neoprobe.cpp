@@ -4,7 +4,7 @@
 //
 //  Created by Ed Cole on 19/05/2018.
 //  Copyright © 2018 Ed Cole. All rights reserved.
-//
+///
 
 #include "neohub.h"
 #include "neoprobe.h"
@@ -94,11 +94,10 @@ char *getNeohub(char *cmd,char *buffer,int buffer_sz){
     }
     close(sockfd);
    
-#else
+#else // read JSON from a file
     if(debug_flag) printf("reading JSON from file\n");
     char json_file_name[] = JSON_FILE;
     readJson(json_file_name, buffer);
-    
 #endif
     
     return(buffer);

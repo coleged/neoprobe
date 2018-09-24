@@ -34,8 +34,8 @@ struct neohub devices[NO_OF_DEVICES]; // see neohub.h
 
 // ************   timestamp()
 char *timestamp(){ // for log line output
+    // returns pointer to static string containing current date & time
     static char timestamp[] = "dd-mm-yyyy,hh:mm";
-    // current date/time based on current system
     time_t now = time(0);
     tm *ltm = localtime(&now);
     sprintf(timestamp,"%02d-%02d-%4d,%02d:%02d",
@@ -44,7 +44,6 @@ char *timestamp(){ // for log line output
             1900 + ltm->tm_year,
             ltm->tm_hour,
             ltm->tm_min);
-    
     return(timestamp);
 }// ************   timestamp()
 
@@ -61,131 +60,141 @@ error(const char *msg)
 void
 errorUsage()
 {
-    printf("USAGE: %s [-v] [-s server] [-p port] \n",myname);
-    printf("    -t           - Prints tempratures and state of all stats and timers\n");
-    printf("    -l           - Prints tempratures and state of all stats in one log line\n");
-    printf("    -D           - Prints debug detail of all connected devices\n");
+    // DVltvp:s:
+    printf("USAGE: %s [-VvtlD] [-s server] [-p port] \n",myname);
+    printf("    -t           - Prints temperatures and state of all stats and timers\n");
+    printf("    -l           - Prints temperatures all stats in one log line\n");
+    printf("    -D           - Debug. Prints debug detail\n");
+    printf("    -v           - Verbose. Prints more detail\n");
     printf("    -V           - Prints version number and exits\n");
-    
 }// ************   errorUsage
 
 
 #ifdef _MAC_OS
 
-//************   examineElement()
-void examineElement(int dev, Json::Value element){
-    
+/* now depreciated but left here for reference
+// ************   examineElement()
+void examineElement(int dev, Json::Value element, bool verbose){
     // recursively parse object element. Populating devices structure array
     static int depth = 1;
-    
     for( Json:: Value member : element.getMemberNames()){
-        if(debug_flag) std::cout << "{" << depth << "}" << member << " : ";
+        if(verbose) std::cout << "{" << depth << "}" << member << " : ";
         switch (element[member.asString()].type())
         {
             case Json::booleanValue:
-                if(debug_flag) std::cout << "(bool) ";
+                if(verbose) std::cout << "(bool) ";
                 if(element[member.asString()].asBool()){
-                    if(debug_flag) std::cout << "= true ";
+                    if(verbose) std::cout << "= true ";
                 }else{
-                    if(debug_flag) std::cout << "= false ";
+                    if(verbose) std::cout << "= false ";
                 };
                 if(member.asString() == "THERMOSTAT"){
                     devices[dev].stat_mode.thermostat=element[member.asString()].asBool();
-                    if(debug_flag) std::cout << "loaded into struct";
+                    if(verbose) std::cout << "loaded into struct";
                 }
                 if(member.asString() == "TIMECLOCK"){
                     devices[dev].stat_mode.timeclock=element[member.asString()].asBool();
-                    if(debug_flag) std::cout << "loaded into struct";
+                    if(verbose) std::cout << "loaded into struct";
                 }
                 if(member.asString() == "TIMER"){
                     devices[dev].timer=element[member.asString()].asBool();
-                    if(debug_flag) std::cout << "loaded into struct";
+                    if(verbose) std::cout << "loaded into struct";
                 }
                 if(member.asString() == "HEATING"){
                     devices[dev].heating=element[member.asString()].asBool();
-                    if(debug_flag) std::cout << "loaded into struct";
+                    if(verbose) std::cout << "loaded into struct";
                 }
-                
-                if(debug_flag) std::cout << std::endl;
+                if(verbose) std::cout << std::endl;
                 break;
             case Json::realValue:
-                if(debug_flag) std::cout << "(real) ";
-                if(debug_flag) std::cout  << element[member.asString()].asFloat();
-                if(debug_flag) std::cout << std::endl;
+                if(verbose) std::cout << "(real) ";
+                if(verbose) std::cout  << element[member.asString()].asFloat();
+                if(verbose) std::cout << std::endl;
                 break;
             case Json::uintValue:
-                if(debug_flag) std::cout << "(u_int) ";
-                if(debug_flag) std::cout  << element[member.asString()].asInt();
-                if(debug_flag) std::cout << std::endl;
+                if(verbose) std::cout << "(u_int) ";
+                if(verbose) std::cout  << element[member.asString()].asInt();
+                if(verbose) std::cout << std::endl;
                 break;
             case Json::stringValue:
-                if(debug_flag) std::cout << "(string) \"";
-                if(debug_flag) std::cout  << element[member.asString()].asString();
-                if(debug_flag) std::cout << "\"";
-               
+                if(verbose) std::cout << "(string) \"";
+                if(verbose) std::cout  << element[member.asString()].asString();
+                if(verbose) std::cout << "\"";
                 if(member.asString() == "CURRENT_TEMPERATURE"){
                     devices[dev].current_temperature=
                                 stof(element[member.asString()].asString(),nullptr);
-                    if(debug_flag) std::cout << "loaded into struct as float";
+                    if(verbose) std::cout << "loaded into struct as float";
                 }
-                if(debug_flag) std::cout << std::endl;
-                
+                if(verbose) std::cout << std::endl;
                 break;
             case Json::intValue:
-                if(debug_flag) std::cout << "(int) ";
-                if(debug_flag) std::cout  << element[member.asString()].asInt();
-                if(debug_flag) std::cout << std::endl;
+                if(verbose) std::cout << "(int) ";
+                if(verbose) std::cout  << element[member.asString()].asInt();
+                if(verbose) std::cout << std::endl;
                 //... need to save **membername** and **value**
                 break;
             case Json::nullValue:
-                if(debug_flag) std::cout << "(null)";
-                if(debug_flag) std::cout << std::endl;
+                if(verbose) std::cout << "(null)";
+                if(verbose) std::cout << std::endl;
                 break;
             case Json::arrayValue:
-                if(debug_flag) std::cout << "(array))";
-                if(debug_flag) std::cout <<  std::endl;
+                if(verbose) std::cout << "(array))";
+                if(verbose) std::cout <<  std::endl;
                 //... parse the array by recursively calling myself for
                 // each array member
                 depth++;
                 for(Json::Value s_element : element[member.asString()]){ //
                     if( s_element.type() == Json::stringValue){ // array of strings
-                        if(debug_flag) std::cout << "{" << depth << "}" << "(string) \"";
-                        if(debug_flag) std::cout  << s_element.asString();
-                        if(debug_flag) std::cout << "\"" << std::endl;
+                        if(verbose) std::cout << "{" << depth << "}" << "(string) \"";
+                        if(verbose) std::cout  << s_element.asString();
+                        if(verbose) std::cout << "\"" << std::endl;
                     }else{ // array of objects
-                        examineElement(dev,s_element);
+                        examineElement(dev,s_element,verbose);
                     }
                 }//for
-                if(debug_flag) std::cout << "{" << depth << "}" << "(END-array)";
-                if(debug_flag) std::cout << std::endl;
+                if(verbose) std::cout << "{" << depth << "}" << "(END-array)";
+                if(verbose) std::cout << std::endl;
                 depth--;
                 break;
             case Json::objectValue:
-                if(debug_flag) std::cout << "(object)";
-                if(debug_flag) std::cout <<  std::endl;
+                if(verbose) std::cout << "(object)";
+                if(verbose) std::cout <<  std::endl;
                 //... parse the object by calling myself
                 depth++;
-                examineElement(dev,element[member.asString()]);
-                if(debug_flag) std::cout << "{" << depth << "}" << "(END-object)";
-                if(debug_flag) std::cout << std::endl;
+                examineElement(dev,element[member.asString()],verbose);
+                if(verbose) std::cout << "{" << depth << "}" << "(END-object)";
+                if(verbose) std::cout << std::endl;
                 depth--;
                 break;
         }//switch
-        
     }//for
 }//END*********** examineElement()
+ */
 
-void json_parse(char *buffer){ //  Alternate version using CharReader
-   
-        //
-        int device = 0;
+void parseInfo(Json::Value root, bool verbose){
+    // parses the INFO:0 command
+    int device = 0;
+    Json::Value stat;
     
-        Json::Value root;   // contains the root value after parsing.
+    for(Json::Value element : root["devices"]){ // cycle thru devices
+        devices[device].device=element["device"].asString();
+        devices[device].current_temperature=stof(element["CURRENT_TEMPERATURE"].asString(),nullptr);
+        devices[device].heating=element["HEATING"].asBool();
+        devices[device].timer=element["TIMER"].asBool();
+        stat = element["STAT_MODE"];
+            devices[device].stat_mode.thermostat=stat["THERMOSTAT"].asBool();
+            devices[device].stat_mode.timeclock=stat["TIMECLOCK"].asBool();
+        device++;
         
+    }// for
+}
+
+void json_parse(char *buffer, bool verbose){ //  Alternate version using CharReader
+   
+        Json::Value root;   // contains the root value after parsing.
         Json::CharReaderBuilder builder;
         Json::CharReader * reader = builder.newCharReader();
-    
-        Json::Value param;
+        Json::Value param; // object to hold nested object
         
         std::string errors;
         
@@ -203,23 +212,17 @@ void json_parse(char *buffer){ //  Alternate version using CharReader
         }
         
         if(debug_flag) std::cout << "***** JSONcpp stuff *****\n";
-        
+    
+    /*
+     // depricated code
         for(Json::Value element : root["devices"]){ // cycle thru devices
             devices[device].device=element["device"].asString();
-            if(debug_flag) std::cout << element["device"] << std::endl;
-            // testing parameter probing
-            // so much simpler than the convuluted code in examineElement()
-            // TODO - rewrite using this
-            /*
-                param = element["CURRENT_TEMPERATURE"];
-                std::cout << element["device"] << param << std::endl;
-            */
-            //
-            examineElement(device,element);
+            if(verbose) std::cout << element["device"] << std::endl;
+            examineElement(device,element,verbose);
             device++;
-            
         }// for
- 
+    */
+    parseInfo(root,verbose);
 }
 
 
@@ -236,13 +239,10 @@ main(int argc, char *argv[])
     int  i;
     int opt;
     char buffer[buffer_sz];
-    char mbuffer[buffer_sz];
     extern char *server_name;
     extern int port_no;
     bool temp_flag = false;
-    
     bool log_flag = false;
-
     quiet=verbose=false;
     
     while ((opt = getopt(argc, argv, "DVltvp:s:")) != -1){
@@ -293,16 +293,9 @@ main(int argc, char *argv[])
     
     getNeohub(cmd,buffer,buffer_sz);  // get the JSON from the neohub
     
-    // copy buffer -> mbuffer as createNeohub() modifies buffer
-    // TODO can probably use buffer now as not using createNeohub, but parsing
-    // JSON with jsoncpp rather than home grown parser
-    
-    memcpy(mbuffer, buffer, buffer_sz);
-    
-    
 #ifdef _MAC_OS
     
-    json_parse(mbuffer); // uses CharReader method
+    json_parse(buffer,verbose); // uses CharReader method
     
 #endif
     
