@@ -23,25 +23,23 @@ char *server_name=NULL;
 char *stripString(char *str){
     // strip out unquoted whitespace and new lines from a string.
     bool quote = false;
-    char *f = str;
-    char *r = str;
+    char *from = str;
+    char *to = str;
     
-    while( *f != '\0'){
-        if( *f == '"'){
-            quote = !quote;
-        }
-        if( isspace(*f) == 0 ){ // not a space
-            *r = *f;
-            r++;
+    while( *from != '\0'){
+        if( *from == '"') quote = !quote;
+        if( isspace(*from) == 0 ){ // not a space
+            *to = *from;
+            to++;
         }else{ // it is a space
             if( quote ){
-                *r = *f;
-                r++;
+                *to = *from;
+                to++;
             }
         }
-        f++;
+        from++;
     }
-    *r = '\0';
+    *to = '\0';
     return(str);
 }
 //END************* stripString()
